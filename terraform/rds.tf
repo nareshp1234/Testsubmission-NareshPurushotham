@@ -10,7 +10,7 @@ resource "aws_kms_key" "rds_key" {
 resource "aws_db_instance" "postgres" {
   identifier              = "${var.project}-db"
   engine                  = "postgres"
-  engine_version          = "15.7-R4"
+  engine_version          = "15.6"
   instance_class          = "db.t3.micro"
   db_name                 = "bankdb"
   username                = var.db_username
