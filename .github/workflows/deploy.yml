@@ -7,7 +7,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPO: banking-app-repo
+  ECR_REPO: team/banking-app-repo
   TF_WORKING_DIR: terraform
 
 permissions:
