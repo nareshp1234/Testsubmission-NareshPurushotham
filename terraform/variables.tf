@@ -62,7 +62,7 @@ variable "image_tag" {
 variable "ecr_repo" {
   description = "ECR repository name for the app image"
   type        = string
-  default     = "banking-app-repo"
+  default     = "team/banking-app-repo"
 }
 
 ##############################
