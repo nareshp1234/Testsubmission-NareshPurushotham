@@ -99,21 +99,18 @@ resource "aws_lb_target_group" "app_tg" {
 # ALB Listeners
 #######################################
 
-# HTTP redirect to HTTPS (optional)
-resource "aws_lb_listener" "http" {
+# HTTP 
+resource "aws_lb_listener" "http_listener" {
   load_balancer_arn = aws_lb.app_alb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
   }
 }
+
 
 # HTTPS listener
 resource "aws_lb_listener" "https" {
@@ -192,9 +189,11 @@ resource "aws_ecs_service" "app_service" {
   }
 
   depends_on = [
-    aws_lb_listener.https,
-    aws_lb_target_group.app_tg
-  ]
+  aws_lb_listener.http_listener,
+  aws_lb_target_group.app_tg
+]
+
+
 
   tags = local.common_tags
 }
