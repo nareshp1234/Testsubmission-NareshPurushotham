@@ -1,0 +1,35 @@
+services:
+  postgresdb:
+    image: postgres:15
+    container_name: bankdb
+    environment:
+      POSTGRES_USER: postgres123
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: bankdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - bankdb-data:/var/lib/postgresql/data
+    networks:
+      - banking-net
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: banking-app
+    environment:
+      FLASK_DEBUG: production
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgresdb
+    networks:
+      - banking-net
+
+volumes:
+  bankdb-data:
+
+networks:
+  banking-net:
+    driver: bridge
