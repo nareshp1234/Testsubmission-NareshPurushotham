@@ -2,14 +2,8 @@
 # ECR Repository
 #######################################
 
-resource "aws_ecr_repository" "app_repo" {
+data "aws_ecr_repository" "app_repo" {
   name = var.ecr_repo
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = local.common_tags
 }
 
 
@@ -143,7 +137,7 @@ resource "aws_ecs_task_definition" "app_task" {
   container_definitions = jsonencode([
     {
       name      = "banking-app"
-      image     = "${aws_ecr_repository.app_repo.repository_url}:${var.image_tag}"
+      image     = "${data.aws_ecr_repository.app_repo.repository_url}:${var.image_tag}"
       essential = true
       portMappings = [
         {
