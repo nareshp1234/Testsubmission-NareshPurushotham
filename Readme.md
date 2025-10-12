@@ -67,7 +67,7 @@ Before running Terraform:
    alb_logs_bucket = ""
 ---
 🧩 File Structure
-.
+```hcl
 ├── main.tf
 ├── variables.tf
 ├── ecr_ecs_alb.tf
