@@ -1,10 +1,21 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+import os
 
 app = Flask(__name__)
 
-# Update this if Postgres is in another container or host
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres123:postgres123@host.docker.internal:5432/bankdb'
+# -----------------------
+# Database configuration from environment variables
+# -----------------------
+DB_USER = os.environ.get("DB_USER", "postgres123")
+DB_PASS = os.environ.get("DB_PASS", "postgres123")
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_PORT = os.environ.get("DB_PORT", "5432")
+DB_NAME = os.environ.get("DB_NAME", "bankdb")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -31,7 +42,6 @@ with app.app_context():
         db.session.add(new_account)
         db.session.commit()
 
-
 # -----------------------
 # Routes / Endpoints
 # -----------------------
@@ -45,8 +55,8 @@ def get_balance(account_id):
 @app.route('/deposit', methods=['POST'])
 def deposit():
     data = request.get_json()
-    account_id = data['account_id']
-    amount = data['amount']
+    account_id = data.get('account_id')
+    amount = float(data.get('amount', 0))
 
     account = db.session.get(Account, account_id)
     if not account:
@@ -60,19 +70,19 @@ def deposit():
 def withdraw():
     data = request.get_json()
     account_id = data.get('account_id')
-    amount = data.get('amount')
+    amount = float(data.get('amount', 0))
 
     if not account_id or amount is None:
         return jsonify({"error": "account_id and amount are required"}), 400
 
-    account = Account.session.get(account_id)
+    account = db.session.get(Account, account_id)
     if not account:
         return jsonify({"error": "account not found"}), 404
 
-    if account.balance < float(amount):
+    if account.balance < amount:
         return jsonify({"error": "insufficient funds"}), 400
 
-    account.balance -= float(amount)
+    account.balance -= amount
     db.session.commit()
     return jsonify({"account_id": account.id, "balance": account.balance})
 

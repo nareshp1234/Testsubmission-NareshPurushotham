@@ -1,38 +1,35 @@
 #######################################
-# ECR Repository
+# ECR Repository (Read existing repo)
 #######################################
-
 data "aws_ecr_repository" "app_repo" {
   name = var.ecr_repo
 }
 
-
 #######################################
 # ECS Cluster
 #######################################
-
 resource "aws_ecs_cluster" "app_cluster" {
   name = "${var.project}-cluster"
   tags = local.common_tags
 }
 
-
 #######################################
 # IAM Roles for ECS Task Execution
 #######################################
-
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "${var.project}-ecs-exec-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
       }
-      Action = "sts:AssumeRole"
-    }]
+    ]
   })
 }
 
@@ -41,11 +38,9 @@ resource "aws_iam_role_policy_attachment" "ecs_task_exec_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-
 #######################################
 # ALB (Application Load Balancer)
 #######################################
-
 resource "aws_lb" "app_alb" {
   name               = "${var.project}-alb"
   internal           = false
@@ -64,11 +59,9 @@ resource "aws_lb" "app_alb" {
   tags = local.common_tags
 }
 
-
 #######################################
 # ALB Target Group
 #######################################
-
 resource "aws_lb_target_group" "app_tg" {
   name        = "${var.project}-tg"
   port        = 8080
@@ -88,12 +81,9 @@ resource "aws_lb_target_group" "app_tg" {
   tags = local.common_tags
 }
 
-
 #######################################
 # ALB Listeners
 #######################################
-
-# HTTP 
 resource "aws_lb_listener" "http_listener" {
   load_balancer_arn = aws_lb.app_alb.arn
   port              = 80
@@ -105,8 +95,6 @@ resource "aws_lb_listener" "http_listener" {
   }
 }
 
-
-# HTTPS listener
 resource "aws_lb_listener" "https" {
   count             = var.acm_cert_arn != "" ? 1 : 0
   load_balancer_arn = aws_lb.app_alb.arn
@@ -121,11 +109,17 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+#######################################
+# CloudWatch Log Group
+#######################################
+resource "aws_cloudwatch_log_group" "banking_app" {
+  name              = "/ecs/banking-app"
+  retention_in_days = 14
+}
 
 #######################################
 # ECS Task Definition
 #######################################
-
 resource "aws_ecs_task_definition" "app_task" {
   family                   = "${var.project}-task"
   network_mode             = "awsvpc"
@@ -139,18 +133,29 @@ resource "aws_ecs_task_definition" "app_task" {
       name      = "banking-app"
       image     = "${data.aws_ecr_repository.app_repo.repository_url}:${var.image_tag}"
       essential = true
+
       portMappings = [
         {
           containerPort = 8080
           hostPort      = 8080
         }
       ]
+
       environment = [
         { name = "DB_HOST", value = aws_db_instance.postgres.address },
         { name = "DB_USER", value = var.db_username },
         { name = "DB_PASS", value = var.db_password },
         { name = "DB_NAME", value = "bankdb" }
       ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.banking_app.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
     }
   ])
 
@@ -158,11 +163,9 @@ resource "aws_ecs_task_definition" "app_task" {
 }
 
 
-
 #######################################
 # ECS Service
 #######################################
-
 resource "aws_ecs_service" "app_service" {
   name            = "${var.project}-service"
   cluster         = aws_ecs_cluster.app_cluster.id
@@ -171,9 +174,10 @@ resource "aws_ecs_service" "app_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = aws_subnet.private[*].id
-    security_groups = [aws_security_group.ecs_sg.id]
-    assign_public_ip = false
+    # ✅ Use PUBLIC subnets for ECR access
+    subnets          = aws_subnet.public[*].id
+    assign_public_ip = true
+    security_groups  = [aws_security_group.ecs_sg.id]
   }
 
   load_balancer {
@@ -183,11 +187,9 @@ resource "aws_ecs_service" "app_service" {
   }
 
   depends_on = [
-  aws_lb_listener.http_listener,
-  aws_lb_target_group.app_tg
-]
-
-
+    aws_lb_listener.http_listener,
+    aws_lb_target_group.app_tg
+  ]
 
   tags = local.common_tags
 }
