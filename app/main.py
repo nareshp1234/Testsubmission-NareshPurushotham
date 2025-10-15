@@ -52,6 +52,11 @@ def get_balance(account_id):
         return jsonify({"account_id": account.id, "balance": account.balance})
     return jsonify({"error": "account not found"}), 404
 
+@app.route('/version', methods=['GET'])
+def get_version():
+    return jsonify({"Version 1.0"})
+
+
 @app.route('/deposit', methods=['POST'])
 def deposit():
     data = request.get_json()
@@ -61,9 +66,12 @@ def deposit():
     account = db.session.get(Account, account_id)
     if not account:
         return jsonify({"error": "account not found"}), 404
+    if amount > 0:
+        account.balance += amount
+        db.session.commit()
+    else:
+      return jsonify({"error": "Invalid amount"}), 400
 
-    account.balance += amount
-    db.session.commit()
     return jsonify({"account_id": account.id, "balance": account.balance})
 
 @app.route('/withdraw', methods=['POST'])
